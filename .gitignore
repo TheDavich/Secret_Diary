@@ -1,0 +1,5 @@
+# Project exclude paths
+/.gradle/
+/Secret Diary/task/build/
+/Secret Diary/task/build/intermediates/javac/debug/classes/
+/Secret Diary/task/build/intermediates/javac/debugAndroidTest/classes/

@@ -1,0 +1,303 @@
+type: edu
+files:
+- name: src/main/java/org/hyperskill/secretdiary/MainActivity.kt
+  visible: true
+  text: |-
+    package org.hyperskill.secretdiary
+
+    import android.os.Bundle
+    import androidx.appcompat.app.AppCompatActivity
+
+
+    class MainActivity : AppCompatActivity() {
+
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+            setContentView(R.layout.activity_main)
+        }
+
+    }
+  learner_created: false
+- name: src/main/res/drawable/ic_launcher_background.xml
+  visible: true
+  learner_created: false
+- name: src/main/res/drawable-v24/ic_launcher_foreground.xml
+  visible: true
+  learner_created: false
+- name: src/main/res/layout/activity_main.xml
+  visible: true
+  learner_created: false
+- name: src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+  visible: true
+  learner_created: false
+- name: src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+  visible: true
+  learner_created: false
+- name: src/main/res/values/colors.xml
+  visible: true
+  learner_created: false
+- name: src/main/res/values/strings.xml
+  visible: true
+  learner_created: false
+- name: src/main/res/values/styles.xml
+  visible: true
+  learner_created: false
+- name: src/main/AndroidManifest.xml
+  visible: true
+  learner_created: false
+- name: src/test/java/org/hyperskill/secretdiary/internals/AbstractUnitTest.kt
+  visible: false
+  text: |-
+    package org.hyperskill.secretdiary.internals
+
+    import android.app.Activity
+    import android.app.AlertDialog
+    import android.content.Intent
+    import android.view.View
+    import org.junit.Assert.assertNotNull
+    import org.junit.Assert.assertTrue
+    import org.robolectric.Robolectric
+    import org.robolectric.Shadows.shadowOf
+    import org.robolectric.android.controller.ActivityController
+    import org.robolectric.shadow.api.Shadow
+    import org.robolectric.shadows.ShadowActivity
+    import org.robolectric.shadows.ShadowAlertDialog
+    import org.robolectric.shadows.ShadowLooper
+    import java.time.Duration
+
+    abstract class AbstractUnitTest<T : Activity>(clazz: Class<T>) {
+
+        /**
+         * Setup and control activities and their lifecycle
+         */
+        protected val activityController: ActivityController<T> by lazy {
+            Robolectric.buildActivity(clazz)
+        }
+
+        /**
+         * The activity being tested.
+         *
+         * It is the @RealObject of the shadowActivity
+         */
+        protected val activity : Activity by lazy {
+            activityController.get()
+        }
+
+        /**
+         * A Roboletric shadow object of the Activity class, contains helper methods to deal with
+         * testing activities like setting permissions, peeking results of launched activities for result,
+         * retrieving shown dialogs, intents and others.
+         *
+         * If you don't know what shadows are you can have a better understanding on that reading this
+         * on roboletric documentation: http://robolectric.org/extending/
+         */
+        protected val shadowActivity: ShadowActivity by lazy {
+            Shadow.extract(activity)
+        }
+
+        /**
+         * A Roboletric shadow object of the mainLooper. Handles enqueued runnables and also the passage of time.
+         *
+         * Usually used with .idleFor(someDurationValue) or .runToEndOfTasks()
+         */
+        protected val shadowLooper: ShadowLooper by lazy {
+            shadowOf(activity.mainLooper)
+        }
+
+        /**
+         * Decorate your test code with this method to ensure better error messages displayed
+         * when tests are run with check button and exceptions are thrown by user implementation.
+         *
+         * returns a value for convenience use, like in tests that involve navigation between Activities
+         */
+        fun <ReturnValue> testActivity(arguments: Intent = Intent(), testCodeBlock: (Activity) -> ReturnValue): ReturnValue {
+            try {
+                activity.intent =  arguments
+                activityController.setup()
+            } catch (ex: Exception) {
+                throw AssertionError("Exception, test failed on activity creation with $ex\n${ex.stackTraceToString()}")
+            }
+
+            return try {
+                testCodeBlock(activity)
+            } catch (ex: Exception) {
+                throw AssertionError("Exception. Test failed on activity execution with $ex\n${ex.stackTraceToString()}")
+            }
+        }
+
+        /**
+         * Use this method to find views.
+         *
+         * The view existence will be assert before being returned
+         */
+        inline fun <reified T> Activity.findViewByString(idString: String): T {
+            val id = this.resources.getIdentifier(idString, "id", this.packageName)
+            val view: View? = this.findViewById(id)
+
+            val idNotFoundMessage = "View with id \"$idString\" was not found"
+            val wrongClassMessage = "View with id \"$idString\" is not from expected class. " +
+                    "Expected ${T::class.java.simpleName} found ${view?.javaClass?.simpleName}"
+
+            assertNotNull(idNotFoundMessage, view)
+            assertTrue(wrongClassMessage, view is T)
+
+            return view as T
+        }
+
+        /**
+         * Use this method to find views.
+         *
+         * The view existence will be assert before being returned
+         */
+        inline fun <reified T> View.findViewByString(idString: String): T {
+            val id = this.resources.getIdentifier(idString, "id", context.packageName)
+            val view: View? = this.findViewById(id)
+
+            val idNotFoundMessage = "View with id \"$idString\" was not found"
+            val wrongClassMessage = "View with id \"$idString\" is not from expected class. " +
+                    "Expected ${T::class.java.simpleName} found ${view?.javaClass?.simpleName}"
+
+            assertNotNull(idNotFoundMessage, view)
+            assertTrue(wrongClassMessage, view is T)
+
+            return view as T
+        }
+
+        /**
+         * Use this method to perform clicks. It will also advance the clock millis milliseconds and run
+         * enqueued Runnable scheduled to run on main looper in that timeframe.
+         * Default value for millis is 500
+         *
+         * Internally it calls performClick() and shadowLooper.idleFor(millis)
+         */
+        protected fun View.clickAndRun(millis: Long = 500){
+            this.performClick()
+            shadowLooper.idleFor(Duration.ofMillis(millis))
+        }
+
+        /**
+         * Use this method to retrieve the latest AlertDialog.
+         *
+         * The existence of such AlertDialog will be asserted before returning.
+         *
+         * Robolectric only supports android.app.AlertDialog, test will not be
+         * able to find androidx.appcompat.app.AlertDialog.
+         */
+        protected fun getLatestAlertDialog(): AlertDialog {
+            val latestAlertDialog = ShadowAlertDialog.getLatestAlertDialog()
+
+            assertNotNull(
+                "There was no AlertDialog found. Make sure to import android.app.AlertDialog version",
+                latestAlertDialog
+            )
+
+            return latestAlertDialog!!
+        }
+    }
+  learner_created: false
+- name: src/test/java/org/hyperskill/secretdiary/Stage1UnitTest.kt
+  visible: false
+  text: "package org.hyperskill.secretdiary\n\nimport android.widget.Button\nimport\
+    \ android.widget.EditText\nimport android.widget.TextView\nimport org.hyperskill.secretdiary.internals.AbstractUnitTest\n\
+    import org.junit.Assert.assertEquals\nimport org.junit.Assert.assertTrue\nimport\
+    \ org.junit.FixMethodOrder\nimport org.junit.Test\nimport org.junit.runner.RunWith\n\
+    import org.junit.runners.MethodSorters\nimport org.robolectric.RobolectricTestRunner\n\
+    import org.robolectric.shadows.ShadowToast\n\n@FixMethodOrder(MethodSorters.NAME_ASCENDING)\n\
+    @RunWith(RobolectricTestRunner::class)\nclass Stage1UnitTest : AbstractUnitTest<MainActivity>(MainActivity::class.java)\
+    \ {\n\n    private val etNewWriting by lazy {\n        val etNewWriting = activity.findViewByString<EditText>(\"\
+    etNewWriting\")\n\n        val messageEtWrongHint =\n            \"etNewWriting\
+    \ should have a hint property with \\\"Dear Diary...\\\" value\"\n        assertEquals(messageEtWrongHint,\
+    \ \"Dear Diary...\", etNewWriting.hint)\n\n        etNewWriting\n    }\n\n   \
+    \ private val btnSave by lazy {\n        val btnSave = activity.findViewByString<Button>(\"\
+    btnSave\")\n\n        val messageBtnSaveWrongText = \"The text of btnSave should\
+    \ be \\\"Save\\\"\"\n        assertEquals(messageBtnSaveWrongText, \"Save\", btnSave.text.toString())\n\
+    \        btnSave\n    }\n\n    private val tvDiary by lazy {\n        val tvDiary\
+    \ = activity.findViewByString<TextView>(\"tvDiary\")\n\n        val messageTvWrongText\
+    \ = \"Initially the text of tvDiary should be empty\"\n        assertTrue(messageTvWrongText,\
+    \ tvDiary.text.isEmpty())\n\n        tvDiary\n    }\n\n\n    @Test\n    fun test00_checkEditText()\
+    \ {\n        testActivity {\n            etNewWriting\n        }\n    }\n\n  \
+    \  @Test\n    fun test01_checkButtonSave() {\n        testActivity {\n       \
+    \     btnSave\n        }\n    }\n\n    @Test\n    fun test02_checkTextView() {\n\
+    \        testActivity {\n            tvDiary\n        }\n    }\n\n\n    @Test\n\
+    \    fun test03_checkSaving() {\n        testActivity {\n            // ensure\
+    \ all views used on test are initialized with initial state\n            etNewWriting\n\
+    \            btnSave\n            tvDiary\n            //\n\n            // First\
+    \ input\n\n            val sampleInputText = \"This was an awesome day\"\n   \
+    \         etNewWriting.setText(sampleInputText)\n            btnSave.performClick()\n\
+    \n            val messageWritingNotSaved =\n                \"By clicking on the\
+    \ Save button, the writing should appear on tvDiary\"\n            assertEquals(messageWritingNotSaved,\
+    \ sampleInputText, tvDiary.text.toString())\n\n            val messageEtNotCleared\
+    \ = \"EditText should be cleared after each saving\"\n            assertTrue(messageEtNotCleared,\
+    \ etNewWriting.text.isEmpty())\n\n            // Second input\n\n            val\
+    \ sampleInputText2 = \"I had a date with my crush\"\n            etNewWriting.setText(sampleInputText2)\n\
+    \            btnSave.performClick()\n\n            val messageDiaryNotOverwritten\
+    \ =\n                \"By clicking on the Save button, the writing should overwrite\
+    \ the text of tvDiary\"\n            assertEquals(messageDiaryNotOverwritten,\
+    \ sampleInputText2, tvDiary.text.toString())\n        }\n    }\n\n    @Test\n\
+    \    fun test04_checkSavingBlank() {\n        testActivity {\n            // ensure\
+    \ all views used on test are initialized with initial state\n            etNewWriting\n\
+    \            btnSave\n            tvDiary\n            //\n\n            val sampleInputText1\
+    \ = \"First input\"\n            etNewWriting.setText(sampleInputText1)\n    \
+    \        btnSave.performClick()\n\n            val sampleInputText2 = \"Second\
+    \ input\"\n            etNewWriting.setText(sampleInputText2)\n            btnSave.performClick()\n\
+    \n            val diaryTextBeforeSaveBlank = tvDiary.text\n\n            val inputBlankString\
+    \ = \"\"\"\n                  \n                          \n            \"\"\"\
+    .trimIndent()\n            etNewWriting.setText(inputBlankString)\n          \
+    \  btnSave.clickAndRun()\n\n            val userToastText = ShadowToast.getTextOfLatestToast()\n\
+    \            val savingBlankToastText = \"Empty or blank input cannot be saved\"\
+    \n            val messageWrongToastText = \"When trying to save an empty or blank\
+    \ string, the appropriate Toast message should be shown\"\n            assertEquals(messageWrongToastText,\
+    \ savingBlankToastText, userToastText)\n\n            val diaryTextAfterSaveBlank\
+    \ = tvDiary.text\n            val messageWrongInputFormat = \"Do not save blank\
+    \ text!\"\n            assertEquals(messageWrongInputFormat, diaryTextBeforeSaveBlank,\
+    \ diaryTextAfterSaveBlank)\n        }\n    }\n}"
+  learner_created: false
+- name: build.gradle
+  visible: true
+  text: |-
+    apply plugin: 'com.android.application'
+    apply plugin: 'kotlin-android'
+
+    android {
+      compileSdkVersion hs.android.compileSdkVersion
+
+      defaultConfig {
+
+        applicationId "org.hyperskill.secretdiary"
+        minSdkVersion hs.android.minSdkVersion
+        targetSdkVersion hs.android.targetSdkVersion
+        versionCode 1
+        versionName '1.0'
+      }
+
+      buildFeatures {
+        viewBinding true
+      }
+    }
+
+    dependencies {
+      implementation 'androidx.test:core-ktx:1.4.0'
+      def kotlinVersion = hs.android.kotlinVersion
+      implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion"
+
+      def coreKtx = hs.android.lib.coreKtx
+      implementation "androidx.core:core-ktx:$coreKtx"
+
+      def appCompat = hs.android.lib.appCompat
+      implementation "androidx.appcompat:appcompat:$appCompat"
+
+      def constraintLayout = hs.android.lib.constraintLayout
+      implementation "androidx.constraintlayout:constraintlayout:$constraintLayout"
+
+      def material = hs.android.lib.material
+      implementation "com.google.android.material:material:$material"
+
+      implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
+    }
+  learner_created: false
+feedback_link: https://hyperskill.org/learn/step/21699#comment
+status: Solved
+feedback:
+  message: Congratulations!
+  time: "Sun, 02 Apr 2023 21:35:42 UTC"
+record: 1
